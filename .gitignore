@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Production build
+dist/
+dist-ssr/
+*.local
+
+# Temporary files
+temp_downloads/
+*.mp4
+*.mp3
+*.part
+*-player-script.js
+
+# Logs and environment
+*.log
+.env
+.env.local
+.DS_Store
+Thumbs.db
