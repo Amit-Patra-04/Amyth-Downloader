@@ -1,27 +1,30 @@
-FROM python:3.11-slim
+FROM node:20-slim
 
-# Install system ffmpeg and nodejs
+# Install Python 3 and FFmpeg
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
     ffmpeg \
-    nodejs \
-    npm \
+    curl \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Install latest yt-dlp globally
+RUN pip3 install --no-cache-dir --break-system-packages -U yt-dlp
+
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install frontend dependencies and build
+# Copy package definition and install dependencies
 COPY package*.json ./
 RUN npm install
 
+# Copy application source code
 COPY . .
-RUN npm run build
 
+# Expose backend port
 EXPOSE 5000
 ENV PORT=5000
+ENV NODE_ENV=production
 
-CMD ["python", "app.py"]
+# Start Node backend server
+CMD ["node", "server.js"]
