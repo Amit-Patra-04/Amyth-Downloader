@@ -153,9 +153,9 @@ app.get('/api/info', (req, res) => {
       '-m', 'yt_dlp',
       '-j',
       '--flat-playlist',
+      '--legacy-server-connect',
       '--no-check-certificates',
-      '--js-runtimes', 'node',
-      '--extractor-args', 'youtube:player_client=ios,android,web',
+      '--extractor-args', 'youtube:player_client=android,web',
       cleanUrl
     ];
 
@@ -163,9 +163,9 @@ app.get('/api/info', (req, res) => {
       '-m', 'yt_dlp',
       '-j',
       '--flat-playlist',
+      '--legacy-server-connect',
       '--no-check-certificates',
-      '--js-runtimes', 'node',
-      '--extractor-args', 'youtube:player_client=mweb,android_vr,web_embedded',
+      '--extractor-args', 'youtube:player_client=ios,mweb',
       cleanUrl
     ];
 
@@ -224,9 +224,9 @@ app.get('/api/info', (req, res) => {
       '-m', 'yt_dlp',
       '--dump-json',
       '--no-playlist',
+      '--legacy-server-connect',
       '--no-check-certificates',
-      '--js-runtimes', 'node',
-      '--extractor-args', 'youtube:player_client=ios,android,web',
+      '--extractor-args', 'youtube:player_client=android,web',
       cleanUrl
     ];
 
@@ -234,9 +234,9 @@ app.get('/api/info', (req, res) => {
       '-m', 'yt_dlp',
       '--dump-json',
       '--no-playlist',
+      '--legacy-server-connect',
       '--no-check-certificates',
-      '--js-runtimes', 'node',
-      '--extractor-args', 'youtube:player_client=mweb,android_vr,web_embedded',
+      '--extractor-args', 'youtube:player_client=ios,mweb',
       cleanUrl
     ];
 
@@ -335,9 +335,9 @@ app.get('/api/download', (req, res) => {
   const args = [
     '-m', 'yt_dlp',
     '--force-overwrites',
+    '--legacy-server-connect',
     '--no-check-certificates',
-    '--js-runtimes', 'node',
-    '--extractor-args', 'youtube:player_client=ios,android,web'
+    '--extractor-args', 'youtube:player_client=android,web'
   ];
 
   if (ffmpegBin) {
