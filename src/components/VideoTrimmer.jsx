@@ -1,476 +1,355 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Scissors, 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  Clock, 
-  Check,
-  Sliders,
-  CheckCircle2
-} from 'lucide-react';
-import TimeInput from './TimeInput';
-import { formatTimeHMS } from '../services/youtubeService';
+import React, { useState, useEffect } from 'react';
+import { Scissors, Clock, RotateCcw, Play, Wifi, Info, CheckCircle2, Check } from 'lucide-react';
 
-export default function VideoTrimmer({ 
-  videoId, 
-  durationSeconds = 180, 
-  onTrimChange,
-  onDurationDetected 
-}) {
-  const [isTrimEnabled, setIsTrimEnabled] = useState(false);
+export default function VideoTrimmer({ videoInfo, onTrimChange }) {
+  if (!videoInfo || !videoInfo.durationSeconds) return null;
+
+  const totalDuration = Math.floor(videoInfo.durationSeconds);
+  const videoId = videoInfo.id;
+
+  // Numeric states in seconds
+  const [enabled, setEnabled] = useState(false);
   const [startTime, setStartTime] = useState(0);
-  const [endTime, setEndTime] = useState(Math.min(durationSeconds, 60));
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentPlayhead, setCurrentPlayhead] = useState(0);
-  const [playerReady, setPlayerReady] = useState(false);
-  const [applyFeedback, setApplyFeedback] = useState(false);
+  const [endTime, setEndTime] = useState(totalDuration);
 
-  const playerRef = useRef(null);
-  const timeWatcherRef = useRef(null);
-  const startTimeRef = useRef(startTime);
-  const endTimeRef = useRef(endTime);
-  const playerIdRef = useRef(`yt_player_${Math.random().toString(36).substr(2, 9)}`);
+  // String input states for hh:mm:ss format
+  const [startInput, setStartInput] = useState('00:00');
+  const [endInput, setEndInput] = useState('00:00');
 
-  // Keep refs synchronized with state at all times
-  useEffect(() => {
-    startTimeRef.current = startTime;
-  }, [startTime]);
+  // Success feedback state
+  const [appliedToast, setAppliedToast] = useState(false);
 
-  useEffect(() => {
-    endTimeRef.current = endTime;
-  }, [endTime]);
+  // Format seconds into hh:mm:ss or mm:ss
+  const formatTime = (secs) => {
+    const s = Math.max(0, Math.floor(secs));
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const remainderSecs = s % 60;
 
-  // Reset when video or duration changes
+    const pad = (num) => (num < 10 ? `0${num}` : num);
+
+    if (hrs > 0) {
+      return `${hrs}:${pad(mins)}:${pad(remainderSecs)}`;
+    }
+    return `${pad(mins)}:${pad(remainderSecs)}`;
+  };
+
+  // Parse any typed timestamp string (e.g. "120", "2:30", "01:20:15") into total seconds
+  const parseAnyTimestampToSeconds = (rawStr) => {
+    if (!rawStr || typeof rawStr !== 'string') return 0;
+    const clean = rawStr.trim();
+    if (!clean) return 0;
+
+    const parts = clean.split(':').map(p => parseInt(p.trim(), 10) || 0);
+
+    if (parts.length === 3) {
+      // hh:mm:ss
+      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    } else if (parts.length === 2) {
+      // mm:ss
+      return parts[0] * 60 + parts[1];
+    } else if (parts.length === 1) {
+      // raw seconds
+      return parts[0];
+    }
+    return 0;
+  };
+
+  // Sync initial inputs when component mounts or total video duration changes
   useEffect(() => {
     setStartTime(0);
-    const initialEnd = Math.min(durationSeconds, 60);
-    setEndTime(initialEnd > 0 ? initialEnd : 60);
-    setCurrentPlayhead(0);
-  }, [videoId, durationSeconds]);
+    setEndTime(totalDuration);
+    setStartInput(formatTime(0));
+    setEndInput(formatTime(totalDuration));
+    setEnabled(false);
+  }, [totalDuration]);
 
-  // Propagate trim changes to parent
+  // Notify parent whenever trim values change
   useEffect(() => {
     onTrimChange({
-      enabled: isTrimEnabled,
-      start: startTime,
-      end: endTime,
-      duration: Math.max(0, endTime - startTime),
+      enabled,
+      startTime: Math.min(startTime, endTime),
+      endTime: Math.max(startTime, endTime),
     });
-  }, [isTrimEnabled, startTime, endTime, onTrimChange]);
+  }, [enabled, startTime, endTime]);
 
-  // Load and initialize YouTube IFrame Player API
-  useEffect(() => {
-    if (!isTrimEnabled) {
-      if (playerRef.current) {
-        try {
-          playerRef.current.destroy();
-        } catch (e) {}
-        playerRef.current = null;
-      }
-      setPlayerReady(false);
-      setIsPlaying(false);
-      if (timeWatcherRef.current) clearInterval(timeWatcherRef.current);
-      return;
-    }
-
-    const initPlayer = () => {
-      if (!window.YT || !window.YT.Player) return;
-
-      const playerContainer = document.getElementById(playerIdRef.current);
-      if (!playerContainer) return;
-
-      try {
-        playerRef.current = new window.YT.Player(playerIdRef.current, {
-          videoId: videoId,
-          playerVars: {
-            playsinline: 1,
-            rel: 0,
-            modestbranding: 1,
-            controls: 1,
-            start: Math.floor(startTimeRef.current),
-            end: Math.ceil(endTimeRef.current),
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: (event) => {
-              setPlayerReady(true);
-              const realDuration = event.target.getDuration();
-              if (realDuration && realDuration > 0 && Math.abs(realDuration - durationSeconds) > 2) {
-                onDurationDetected?.(realDuration);
-              }
-            },
-            onStateChange: (event) => {
-              // 1 = PLAYING
-              if (event.data === 1) {
-                setIsPlaying(true);
-                const current = event.target.getCurrentTime();
-                // If user pressed play but position was outside trim range, immediately seek to trim start
-                if (current < startTimeRef.current || current >= endTimeRef.current) {
-                  event.target.seekTo(startTimeRef.current, true);
-                }
-                startTimeWatcher();
-              } else {
-                setIsPlaying(false);
-                stopTimeWatcher();
-              }
-            },
-          },
-        });
-      } catch (err) {
-        console.warn('YouTube Player init error:', err);
-      }
-    };
-
-    if (!window.YT || !window.YT.Player) {
-      if (!document.getElementById('yt_api_script')) {
-        const tag = document.createElement('script');
-        tag.id = 'yt_api_script';
-        tag.src = 'https://www.youtube.com/iframe_api';
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-      }
-
-      window.onYouTubeIframeAPIReady = () => {
-        initPlayer();
-      };
-    } else {
-      initPlayer();
-    }
-
-    return () => {
-      stopTimeWatcher();
-      if (playerRef.current) {
-        try {
-          playerRef.current.destroy();
-        } catch (e) {}
-        playerRef.current = null;
-      }
-    };
-  }, [isTrimEnabled, videoId]);
-
-  // High-precision time watcher using REFS to guarantee checking current endTime & startTime
-  const startTimeWatcher = () => {
-    stopTimeWatcher();
-    timeWatcherRef.current = setInterval(() => {
-      if (!playerRef.current || typeof playerRef.current.getCurrentTime !== 'function') return;
-
-      const current = playerRef.current.getCurrentTime();
-      setCurrentPlayhead(current);
-
-      const targetEnd = endTimeRef.current;
-      const targetStart = startTimeRef.current;
-
-      // When playback reaches or passes the trim end time:
-      if (current >= targetEnd - 0.08) {
-        playerRef.current.pauseVideo();
-        playerRef.current.seekTo(targetStart, true);
-        setCurrentPlayhead(targetStart);
-        setIsPlaying(false);
-        stopTimeWatcher();
-      }
-    }, 50);
+  // Slider Drag Handlers
+  const handleStartChange = (val) => {
+    const num = Math.max(0, Math.min(Number(val), endTime - 1));
+    setStartTime(num);
+    setStartInput(formatTime(num));
   };
 
-  const stopTimeWatcher = () => {
-    if (timeWatcherRef.current) {
-      clearInterval(timeWatcherRef.current);
-      timeWatcherRef.current = null;
+  const handleEndChange = (val) => {
+    const num = Math.min(totalDuration, Math.max(Number(val), startTime + 1));
+    setEndTime(num);
+    setEndInput(formatTime(num));
+  };
+
+  // Typing Input Change Handlers (Live validation without interrupting typing)
+  const handleStartInputChange = (val) => {
+    setStartInput(val);
+    const secs = parseAnyTimestampToSeconds(val);
+    if (!isNaN(secs) && secs >= 0) {
+      const validSecs = Math.min(secs, endTime - 1);
+      setStartTime(validSecs);
     }
   };
 
-  // Play / Pause Trim toggle
-  const handlePlayPauseTrim = () => {
-    if (!playerRef.current || typeof playerRef.current.playVideo !== 'function') return;
-
-    if (isPlaying) {
-      playerRef.current.pauseVideo();
-      setIsPlaying(false);
-    } else {
-      const current = playerRef.current.getCurrentTime();
-      if (current < startTimeRef.current || current >= endTimeRef.current) {
-        playerRef.current.seekTo(startTimeRef.current, true);
-      }
-      playerRef.current.playVideo();
-      setIsPlaying(true);
-      startTimeWatcher();
+  const handleEndInputChange = (val) => {
+    setEndInput(val);
+    const secs = parseAnyTimestampToSeconds(val);
+    if (!isNaN(secs) && secs > 0) {
+      const validSecs = Math.min(totalDuration, Math.max(secs, startTime + 1));
+      setEndTime(validSecs);
     }
   };
 
-  // Replay Trim: ALWAYS seeks to trim start (NOT video 0:00)
-  const handleReplayTrim = () => {
-    if (!playerRef.current || typeof playerRef.current.seekTo !== 'function') return;
-    playerRef.current.seekTo(startTimeRef.current, true);
-    playerRef.current.playVideo();
-    setIsPlaying(true);
-    startTimeWatcher();
+  // Commit text input for Start Time on Blur or Enter key
+  const handleCommitStartInput = () => {
+    const secs = parseAnyTimestampToSeconds(startInput);
+    const validSecs = Math.max(0, Math.min(secs, endTime - 1));
+    setStartTime(validSecs);
+    setStartInput(formatTime(validSecs));
   };
 
-  // Reset Trim to full video
-  const handleResetFull = () => {
+  // Commit text input for End Time on Blur or Enter key
+  const handleCommitEndInput = () => {
+    const secs = parseAnyTimestampToSeconds(endInput);
+    const validSecs = Math.min(totalDuration, Math.max(secs, startTime + 1));
+    setEndTime(validSecs);
+    setEndInput(formatTime(validSecs));
+  };
+
+  const handleInputKeyDown = (e, onCommit) => {
+    if (e.key === 'Enter') {
+      onCommit();
+    }
+  };
+
+  const handleApplyClick = () => {
+    handleCommitStartInput();
+    handleCommitEndInput();
+    setAppliedToast(true);
+    setTimeout(() => setAppliedToast(false), 2500);
+  };
+
+  const handleReset = () => {
     setStartTime(0);
-    setEndTime(durationSeconds);
-    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-      playerRef.current.seekTo(0, true);
-    }
+    setEndTime(totalDuration);
+    setStartInput(formatTime(0));
+    setEndInput(formatTime(totalDuration));
   };
 
-  // Mobile / Tab / PC "Apply Trim" button handler
-  const handleApplyTrim = () => {
-    if (document.activeElement && typeof document.activeElement.blur === 'function') {
-      document.activeElement.blur();
-    }
+  const clipDuration = Math.max(0, endTime - startTime);
 
-    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-      playerRef.current.seekTo(startTimeRef.current, true);
-      setCurrentPlayhead(startTimeRef.current);
-    }
+  // Percentages for single track dual slider representation
+  const startPercent = totalDuration > 0 ? Math.min(100, Math.max(0, (startTime / totalDuration) * 100)) : 0;
+  const endPercent = totalDuration > 0 ? Math.min(100, Math.max(0, (endTime / totalDuration) * 100)) : 100;
+  const rangeWidth = Math.max(0, endPercent - startPercent);
 
-    setApplyFeedback(true);
-    setTimeout(() => setApplyFeedback(false), 2000);
-  };
-
-  const handleToggleTrim = () => {
-    setIsTrimEnabled(!isTrimEnabled);
-  };
-
-  // Sliders
-  const handleStartSlider = (e) => {
-    const val = Math.min(Number(e.target.value), endTime - 1);
-    const safeVal = Math.max(0, val);
-    setStartTime(safeVal);
-    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-      playerRef.current.seekTo(safeVal, true);
-      setCurrentPlayhead(safeVal);
-    }
-  };
-
-  const handleEndSlider = (e) => {
-    const val = Math.max(Number(e.target.value), startTime + 1);
-    const safeVal = Math.min(durationSeconds, val);
-    setEndTime(safeVal);
-  };
-
-  const startPercent = durationSeconds > 0 ? (startTime / durationSeconds) * 100 : 0;
-  const endPercent = durationSeconds > 0 ? (endTime / durationSeconds) * 100 : 100;
-  const playheadPercent = durationSeconds > 0 ? (currentPlayhead / durationSeconds) * 100 : 0;
-  const trimmedDuration = Math.max(0, endTime - startTime);
+  // Mobile-compatible & tablet-compatible inline YouTube embed URL with playsinline=1 & enablejsapi=1
+  const embedUrl = videoId 
+    ? `https://www.youtube-nocookie.com/embed/${videoId}?start=${startTime}&end=${endTime}&playsinline=1&enablejsapi=1&autoplay=0&rel=0&controls=1&modestbranding=1&fs=1`
+    : '';
 
   return (
-    <div className="w-full max-w-3xl mx-auto mb-6">
-      
-      {/* Main Container */}
-      <div className="rounded-2xl bg-zinc-900 border border-zinc-800 p-4 sm:p-6 shadow-sm text-left">
-        
-        {/* Header with Switch */}
-        <div className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all ${
-              isTrimEnabled 
-                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20' 
-                : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-            }`}>
-              <Scissors className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-sm sm:text-base text-white">
-                  Trim Video
-                </h3>
-                <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                  Optional
-                </span>
-              </div>
-              <p className="text-[11px] sm:text-xs text-zinc-400">
-                Cut and preview a specific segment before downloading
-              </p>
-            </div>
+    <div className="w-full glass-panel rounded-3xl p-5 mb-8 border border-white/10 transition-all">
+      {/* Toggle Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className={`p-2 rounded-xl transition-all ${enabled ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-lg shadow-rose-500/10' : 'bg-white/5 text-slate-400'}`}>
+            <Scissors className="w-5 h-5" />
           </div>
-
-          {/* Toggle Switch */}
-          <div className="flex items-center gap-2">
-            <span className={`text-xs font-medium ${isTrimEnabled ? 'text-blue-400' : 'text-zinc-500'}`}>
-              {isTrimEnabled ? 'On' : 'Off'}
-            </span>
-
-            <button
-              type="button"
-              onClick={handleToggleTrim}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                isTrimEnabled ? 'bg-blue-600' : 'bg-zinc-700'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  isTrimEnabled ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
+          <div className="text-left">
+            <h4 className="font-bold text-slate-100 flex items-center gap-2 text-sm sm:text-base">
+              <span>Trim Specific Section</span>
+              {enabled && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 font-mono font-medium">
+                  Active
+                </span>
+              )}
+            </h4>
+            <p className="text-xs text-slate-400">Download only a specific clip instead of full video</p>
           </div>
         </div>
 
-        {/* Trim Controls */}
-        {isTrimEnabled && (
-          <div className="pt-4 sm:pt-5 space-y-4 sm:space-y-5">
-            
-            {/* Interactive Player with Strictly Enforced Trim Boundaries */}
-            <div className="rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 shadow-sm relative">
-              <div className="aspect-video w-full max-h-[340px] flex items-center justify-center bg-black">
-                <div id={playerIdRef.current} className="w-full h-full" />
-              </div>
-
-              {/* Player Control Bar */}
-              <div className="p-2.5 sm:p-3 bg-zinc-900 border-t border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  
-                  {/* Play/Pause Trim Button */}
-                  <button
-                    type="button"
-                    onClick={handlePlayPauseTrim}
-                    className="flex-1 sm:flex-none min-h-[38px] flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs transition-all shadow-sm active:scale-95"
-                  >
-                    {isPlaying ? <Pause className="w-3.5 h-3.5 fill-white" /> : <Play className="w-3.5 h-3.5 fill-white" />}
-                    <span>{isPlaying ? 'Pause' : `Play Trim (${formatTimeHMS(startTime, durationSeconds)})`}</span>
-                  </button>
-
-                  {/* Replay Segment (Always starts from trim start) */}
-                  <button
-                    type="button"
-                    onClick={handleReplayTrim}
-                    className="flex-1 sm:flex-none min-h-[38px] flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs transition-all border border-zinc-700 active:scale-95"
-                    title="Play from start of trimmed segment"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Replay Segment</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleResetFull}
-                    className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs transition-all border border-zinc-700"
-                  >
-                    Reset Full
-                  </button>
-                </div>
-
-                <div className="text-xs text-zinc-400 font-mono flex items-center justify-between sm:justify-end gap-1.5">
-                  <span>Clip Duration:</span>
-                  <span className="text-white font-bold bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">
-                    {formatTimeHMS(trimmedDuration, durationSeconds)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Slider Track with Live Playhead */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center justify-between text-xs text-zinc-400 font-mono">
-                <span>{formatTimeHMS(0, durationSeconds)}</span>
-                <span className="text-blue-400 font-semibold">
-                  Selected: {formatTimeHMS(trimmedDuration, durationSeconds)}
-                </span>
-                <span>{formatTimeHMS(durationSeconds, durationSeconds)}</span>
-              </div>
-
-              <div className="relative h-8 flex items-center">
-                {/* Background Track */}
-                <div className="absolute inset-x-0 h-2.5 bg-zinc-800 rounded-full" />
-
-                {/* Highlighted Trim Segment */}
-                <div
-                  className="absolute h-2.5 bg-blue-600 rounded-full"
-                  style={{
-                    left: `${startPercent}%`,
-                    width: `${Math.max(0, endPercent - startPercent)}%`,
-                  }}
-                />
-
-                {/* Live Playhead Indicator */}
-                {isPlaying && (
-                  <div
-                    className="absolute top-0.5 bottom-0.5 w-1.5 bg-white shadow-md z-10 rounded-full pointer-events-none transition-all duration-75"
-                    style={{ left: `${playheadPercent}%` }}
-                  />
-                )}
-
-                {/* Start Thumb Slider */}
-                <input
-                  type="range"
-                  min={0}
-                  max={durationSeconds}
-                  value={startTime}
-                  onChange={handleStartSlider}
-                  className="clean-slider absolute inset-0 w-full h-full z-20"
-                />
-
-                {/* End Thumb Slider */}
-                <input
-                  type="range"
-                  min={0}
-                  max={durationSeconds}
-                  value={endTime}
-                  onChange={handleEndSlider}
-                  className="clean-slider absolute inset-0 w-full h-full z-20"
-                />
-              </div>
-            </div>
-
-            {/* Masked Time Inputs (HH:MM:SS / HHH:MM:SS) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <TimeInput
-                label="Start Time"
-                value={startTime}
-                onChange={(sec) => {
-                  if (sec < endTime) {
-                    setStartTime(sec);
-                    if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
-                      playerRef.current.seekTo(sec, true);
-                    }
-                  }
-                }}
-                maxDurationSeconds={durationSeconds}
-                iconColor="text-blue-400"
-              />
-
-              <TimeInput
-                label="End Time"
-                value={endTime}
-                onChange={(sec) => {
-                  if (sec > startTime && sec <= durationSeconds) {
-                    setEndTime(sec);
-                  }
-                }}
-                maxDurationSeconds={durationSeconds}
-                iconColor="text-emerald-400"
-              />
-            </div>
-
-            {/* Prominent "Set / Apply Trim" Button for Mobile, Tab, and PC */}
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={handleApplyTrim}
-                className="w-full min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-medium text-xs sm:text-sm border border-zinc-700 transition-all active:scale-[0.99]"
-              >
-                {applyFeedback ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="text-emerald-300">Trim Range Applied ({formatTimeHMS(startTime, durationSeconds)} &ndash; {formatTimeHMS(endTime, durationSeconds)})</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 text-blue-400" />
-                    <span>Set & Apply Trim Timestamps</span>
-                  </>
-                )}
-              </button>
-            </div>
-
-          </div>
-        )}
-
+        {/* Toggle Switch */}
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => setEnabled(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+        </label>
       </div>
 
+      {/* Trimmer Controls Body (Visible when enabled) */}
+      {enabled && (
+        <div className="mt-6 pt-6 border-t border-white/10 space-y-6 text-left">
+          
+          {/* Interactive Clean Preview Video Player */}
+          {videoId && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
+                <span className="flex items-center gap-1.5 font-medium text-slate-200">
+                  <Play className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Minimal Trim Preview ({formatTime(startTime)} - {formatTime(endTime)})</span>
+                </span>
+                <span className="text-[11px] text-emerald-400 font-mono bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Wifi className="w-3 h-3" />
+                  <span>Data Saver Preview</span>
+                </span>
+              </div>
+
+              <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-black/80 border border-white/10 shadow-xl">
+                <iframe
+                  key={videoId}
+                  src={embedUrl}
+                  title="Trim Section Preview"
+                  className="w-full h-full border-none"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                  allowFullScreen
+                ></iframe>
+              </div>
+
+              {/* Data Saver Notice */}
+              <div className="p-3 rounded-xl bg-blue-950/30 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2 leading-relaxed">
+                <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Note:</strong> The playing video is stream-optimized for lower internet usage. This preview playback quality has <strong>no impact</strong> on your final high-definition download quality.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Clip Info Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/40 border border-white/10 text-xs">
+            <div className="flex items-center gap-2 text-slate-300">
+              <Clock className="w-4 h-4 text-rose-400" />
+              <span>
+                Selected Range: <strong className="text-white font-mono">{formatTime(startTime)}</strong> to <strong className="text-white font-mono">{formatTime(endTime)}</strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-slate-400">
+                Clip Duration: <strong className="text-emerald-400 font-mono text-sm">{formatTime(clipDuration)}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleReset}
+                className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-2.5 py-1 rounded-lg border border-white/10 cursor-pointer"
+                title="Reset to Full Duration"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Single Track Dual-Thumb Slider */}
+          <div className="space-y-2 px-2 py-2">
+            <div className="flex justify-between text-xs text-slate-400 font-mono mb-2">
+              <span>Start: <strong className="text-rose-400">{formatTime(startTime)}</strong></span>
+              <span className="text-slate-500 font-sans text-[11px]">Drag handles or type timestamp below</span>
+              <span>End: <strong className="text-rose-400">{formatTime(endTime)}</strong></span>
+            </div>
+
+            {/* Single Slide Track Container */}
+            <div className="relative w-full h-8 flex items-center select-none touch-none">
+              {/* Background Track Bar with 6px left/right inset matching 12px vertical bar thumb radius */}
+              <div className="absolute left-[6px] right-[6px] h-3 bg-slate-800/80 rounded-full border border-white/10 overflow-hidden">
+                {/* Active Highlighted Range Bar mathematically matching vertical bar thumb centers */}
+                <div
+                  className="absolute h-full bg-gradient-to-r from-red-600 via-rose-500 to-rose-400 shadow-lg shadow-rose-500/30"
+                  style={{
+                    left: `${startPercent}%`,
+                    width: `${rangeWidth}%`,
+                  }}
+                />
+              </div>
+
+              {/* Start Range Input (Left Vertical Bar Thumb) */}
+              <input
+                type="range"
+                min={0}
+                max={totalDuration}
+                value={startTime}
+                onChange={(e) => handleStartChange(e.target.value)}
+                className="absolute w-full h-3 appearance-none bg-transparent pointer-events-none z-20 dual-slider-thumb outline-none"
+              />
+
+              {/* End Range Input (Right Vertical Bar Thumb) */}
+              <input
+                type="range"
+                min={0}
+                max={totalDuration}
+                value={endTime}
+                onChange={(e) => handleEndChange(e.target.value)}
+                className="absolute w-full h-3 appearance-none bg-transparent pointer-events-none z-30 dual-slider-thumb outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Manual Precise Timestamp Inputs (hh:mm:ss format e.g. 02:05:41 or 120) */}
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1 font-medium flex items-center justify-between">
+                  <span>Start Cut (mm:ss or hh:mm:ss)</span>
+                  <span className="text-[10px] text-slate-500 font-mono">e.g. 01:20 or 90</span>
+                </label>
+                <input
+                  type="text"
+                  value={startInput}
+                  onChange={(e) => handleStartInputChange(e.target.value)}
+                  onBlur={handleCommitStartInput}
+                  onKeyDown={(e) => handleInputKeyDown(e, handleCommitStartInput)}
+                  placeholder="00:00"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-slate-100 focus:outline-none focus:border-rose-500 transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-slate-400 mb-1 font-medium flex items-center justify-between">
+                  <span>End Cut (mm:ss or hh:mm:ss)</span>
+                  <span className="text-[10px] text-slate-500 font-mono">e.g. 05:40 or 340</span>
+                </label>
+                <input
+                  type="text"
+                  value={endInput}
+                  onChange={(e) => handleEndInputChange(e.target.value)}
+                  onBlur={handleCommitEndInput}
+                  onKeyDown={(e) => handleInputKeyDown(e, handleCommitEndInput)}
+                  placeholder="00:00"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-mono text-slate-100 focus:outline-none focus:border-rose-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Apply Trim Button (Optimized for Mobile/Phone view) */}
+            <button
+              type="button"
+              onClick={handleApplyClick}
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 via-red-600 to-rose-500 hover:from-rose-500 hover:to-red-500 text-white font-bold text-sm shadow-lg shadow-rose-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4 text-white" />
+              <span>Apply Trim Timestamps</span>
+            </button>
+
+            {appliedToast && (
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-mono text-center flex items-center justify-center gap-1.5 animate-pulse">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Trim Range Applied: {formatTime(startTime)} to {formatTime(endTime)}</span>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
     </div>
   );
 }
