@@ -89,25 +89,27 @@ const formatDuration = (secs) => {
   return `${pad(mins)}:${pad(remainderSecs)}`;
 };
 
-// Helper function to execute yt-dlp with multi-stage fallback
-const executeYtDlpArgsWithFallback = (primaryArgs, fallbackArgs, callback) => {
-  execFile(PYTHON_CMD, primaryArgs, { maxBuffer: 40 * 1024 * 1024 }, (error, stdout, stderr) => {
-    if (error || !stdout || stdout.trim() === '') {
-      console.warn('Primary yt-dlp attempt failed, trying fallback client args...', stderr || error?.message);
-      execFile(PYTHON_CMD, fallbackArgs, { maxBuffer: 40 * 1024 * 1024 }, (fbErr, fbStdout, fbStderr) => {
-        if (fbErr || !fbStdout || fbStdout.trim() === '') {
-          // Final fallback without extractor args
-          const cleanArgs = primaryArgs.filter((arg, i, arr) => arg !== '--extractor-args' && arr[i - 1] !== '--extractor-args');
-          execFile(PYTHON_CMD, cleanArgs, { maxBuffer: 40 * 1024 * 1024 }, (finalErr, finalStdout, finalStderr) => {
-            callback(finalErr || fbErr || error, finalStdout || fbStdout || stdout, finalStderr || fbStderr || stderr);
-          });
-        } else {
-          callback(null, fbStdout, fbStderr);
-        }
-      });
-    } else {
-      callback(null, stdout, stderr);
+// Helper function to execute yt-dlp with robust multi-stage cloud fallback
+const executeYtDlpArgsWithFallback = (tier1Args, tier2Args, tier3Args, callback) => {
+  execFile(PYTHON_CMD, tier1Args, { maxBuffer: 40 * 1024 * 1024 }, (error1, stdout1, stderr1) => {
+    if (!error1 && stdout1 && stdout1.trim() !== '') {
+      return callback(null, stdout1, stderr1);
     }
+    console.warn('Tier 1 yt-dlp attempt failed, trying Tier 2 (mweb, android_vr)...', stderr1 || error1?.message);
+    
+    execFile(PYTHON_CMD, tier2Args, { maxBuffer: 40 * 1024 * 1024 }, (error2, stdout2, stderr2) => {
+      if (!error2 && stdout2 && stdout2.trim() !== '') {
+        return callback(null, stdout2, stderr2);
+      }
+      console.warn('Tier 2 yt-dlp attempt failed, trying Tier 3 (clean android, web)...', stderr2 || error2?.message);
+
+      execFile(PYTHON_CMD, tier3Args, { maxBuffer: 40 * 1024 * 1024 }, (error3, stdout3, stderr3) => {
+        if (!error3 && stdout3 && stdout3.trim() !== '') {
+          return callback(null, stdout3, stderr3);
+        }
+        callback(error3 || error2 || error1, stdout3 || stdout2 || stdout1, stderr3 || stderr2 || stderr1);
+      });
+    });
   });
 };
 
@@ -149,7 +151,27 @@ app.get('/api/info', (req, res) => {
   const isPlaylist = cleanUrl.includes('list=') || cleanUrl.includes('/playlist');
 
   if (isPlaylist) {
-    const primaryArgs = [
+    const tier1Args = [
+      '-m', 'yt_dlp',
+      '-j',
+      '--flat-playlist',
+      '--legacy-server-connect',
+      '--no-check-certificates',
+      '--extractor-args', 'youtube:player_client=android_creator,tv_embedded,web_embedded,android;player_skip=webpage',
+      cleanUrl
+    ];
+
+    const tier2Args = [
+      '-m', 'yt_dlp',
+      '-j',
+      '--flat-playlist',
+      '--legacy-server-connect',
+      '--no-check-certificates',
+      '--extractor-args', 'youtube:player_client=mweb,android_vr,ios',
+      cleanUrl
+    ];
+
+    const tier3Args = [
       '-m', 'yt_dlp',
       '-j',
       '--flat-playlist',
@@ -159,17 +181,7 @@ app.get('/api/info', (req, res) => {
       cleanUrl
     ];
 
-    const fallbackArgs = [
-      '-m', 'yt_dlp',
-      '-j',
-      '--flat-playlist',
-      '--legacy-server-connect',
-      '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=ios,mweb',
-      cleanUrl
-    ];
-
-    executeYtDlpArgsWithFallback(primaryArgs, fallbackArgs, (error, stdout, stderr) => {
+    executeYtDlpArgsWithFallback(tier1Args, tier2Args, tier3Args, (error, stdout, stderr) => {
       if (error && (!stdout || stdout.trim() === '')) {
         console.error('yt-dlp playlist error:', stderr || error.message);
         return res.status(500).json({ error: parseYtDlpError(stderr, error) });
@@ -220,7 +232,27 @@ app.get('/api/info', (req, res) => {
     });
   } else {
     // Single Video Extraction
-    const primaryArgs = [
+    const tier1Args = [
+      '-m', 'yt_dlp',
+      '--dump-json',
+      '--no-playlist',
+      '--legacy-server-connect',
+      '--no-check-certificates',
+      '--extractor-args', 'youtube:player_client=android_creator,tv_embedded,web_embedded,android;player_skip=webpage',
+      cleanUrl
+    ];
+
+    const tier2Args = [
+      '-m', 'yt_dlp',
+      '--dump-json',
+      '--no-playlist',
+      '--legacy-server-connect',
+      '--no-check-certificates',
+      '--extractor-args', 'youtube:player_client=mweb,android_vr,ios',
+      cleanUrl
+    ];
+
+    const tier3Args = [
       '-m', 'yt_dlp',
       '--dump-json',
       '--no-playlist',
@@ -230,17 +262,7 @@ app.get('/api/info', (req, res) => {
       cleanUrl
     ];
 
-    const fallbackArgs = [
-      '-m', 'yt_dlp',
-      '--dump-json',
-      '--no-playlist',
-      '--legacy-server-connect',
-      '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=ios,mweb',
-      cleanUrl
-    ];
-
-    executeYtDlpArgsWithFallback(primaryArgs, fallbackArgs, (error, stdout, stderr) => {
+    executeYtDlpArgsWithFallback(tier1Args, tier2Args, tier3Args, (error, stdout, stderr) => {
       if (error || !stdout || stdout.trim() === '') {
         console.error('yt-dlp error:', stderr || error?.message);
         return res.status(500).json({
@@ -337,7 +359,7 @@ app.get('/api/download', (req, res) => {
     '--force-overwrites',
     '--legacy-server-connect',
     '--no-check-certificates',
-    '--extractor-args', 'youtube:player_client=android,web'
+    '--extractor-args', 'youtube:player_client=android_creator,tv_embedded,web_embedded,android;player_skip=webpage'
   ];
 
   if (ffmpegBin) {
