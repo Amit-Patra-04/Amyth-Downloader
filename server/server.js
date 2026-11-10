@@ -124,19 +124,36 @@ const parseYtDlpError = (stderr, error) => {
   return 'Failed to fetch video information. Please verify the URL or try again later.';
 };
 
+// Serve static client assets if built
+const DIST_DIR = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(DIST_DIR)) {
+  app.use(express.static(DIST_DIR));
+}
+
 // Health check routes
-app.get('/', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
     service: 'YouTube Video & Playlist Downloader Backend',
     version: '1.0.0',
     python: PYTHON_CMD,
-    ffmpeg: getFfmpegPath() ? 'available' : 'missing'
+    ffmpeg: getFfmpegPath() ? 'available' : 'missing',
+    timestamp: new Date().toISOString()
   });
 });
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/', (req, res) => {
+  if (fs.existsSync(path.join(DIST_DIR, 'index.html'))) {
+    return res.sendFile(path.join(DIST_DIR, 'index.html'));
+  }
+  res.json({
+    status: 'online',
+    service: 'YouTube Video & Playlist Downloader Backend',
+    version: '1.0.0',
+    python: PYTHON_CMD,
+    ffmpeg: getFfmpegPath() ? 'available' : 'missing',
+    message: `Backend running on port ${PORT}. Use "npm run dev" to launch the full studio.`
+  });
 });
 
 // GET /api/info - Fetch video or playlist metadata
@@ -446,6 +463,16 @@ app.get('/api/download', (req, res) => {
     }
   });
 });
+
+// Fallback SPA routing for built frontend
+if (fs.existsSync(DIST_DIR)) {
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api')) {
+      return res.sendFile(path.join(DIST_DIR, 'index.html'));
+    }
+    next();
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 YouTube Downloader Backend Server running on http://localhost:${PORT}`);

@@ -1,15 +1,16 @@
 {
   "name": "youtube-video-downloader",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "server": "node server/server.js",
-    "dev:all": "concurrently \"node server/server.js\" \"vite\"",
+    "dev": "concurrently --kill-others-on-fail -n \"backend,frontend\" -c \"blue,green\" \"node server/server.js\" \"vite\"",
+    "start": "node server/server.js",
+    "dev:backend": "node server/server.js",
+    "dev:frontend": "vite",
     "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

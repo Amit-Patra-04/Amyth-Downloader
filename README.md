@@ -1,75 +1,131 @@
-# ⚡ Amyth Downloader
+# ⚡ Amyth Downloader (StreamGrab PRO)
 
-> **Next-Generation YouTube Video & Audio Studio** built with React JS + Tailwind CSS. 100% Free, High-Tech Futuristic Cyberpunk Aesthetics, Dynamic Resolution Locking, and Interactive Video Trimmer.
-
----
-
-## 🌟 Key Features
-
-- **Dynamic Resolution Guard**: Automatically inspects the uploaded native video quality. If a video maxes out at 1080p, the 4K and 2K options are locked with the notice:
-  > *"Original quality of video is not falling within this"*
-- **MP4 Video & MP3 Audio Formats**:
-  - **Video Qualities**: 4K Ultra HD (2160p), 2K Quad HD (1440p), 1080p Full HD, 720p HD, 480p SD, 360p Mobile.
-  - **Audio Bitrates**: 320 kbps (Ultra Studio), 256 kbps (Hi-Fi), 192 kbps (Standard), 128 kbps (Eco).
-- **Interactive Video Trimmer (Studio Mode)**:
-  - Futuristic toggle switch.
-  - Interactive dual range slider with Start Time and End Time inputs (`HH:MM:SS`).
-  - Synchronized in-browser video preview playing the exact trimmed segment.
-- **Futuristic Holographic HUD UI**:
-  - Cosmic dark canvas with glowing neural particles and dynamic grid lines.
-  - Laser scanline animations, glassmorphic cards, neon cyan/purple/pink glowing borders, and celebration effects.
-  - One-click clipboard paste and quick-test sample presets.
-- **Local Download Vault**:
-  - Keeps track of downloaded videos and clips in browser storage for instant re-download.
-- **100% Free & Open**:
-  - Zero API keys needed, zero subscriptions, zero ads.
+> **Modern YouTube Video & Audio Studio** built with React + Vite + Tailwind CSS & Node.js Express. 
+> 100% Free, unlimited, runs completely locally on your machine with zero cloud rate limits.
 
 ---
 
-## 🚀 Running Locally
+## 🌟 Features
 
-To run the development server locally:
+- **🎬 Full HD, 2K & 4K Ultra HD Video Downloads**:
+  - Automatically analyzes the original uploaded resolution (360p, 480p, 720p, 1080p, 1440p, 2160p).
+  - Dynamically disables higher quality options with a clear warning if the original video does not offer that resolution.
+  - Automatically remuxes video and audio streams into clean `.mp4` format.
+
+- **🎵 Ultra-High Bitrate MP3 Audio Extraction**:
+  - Downloads audio in 320 kbps (Studio), 256 kbps (Hi-Fi), 192 kbps (Standard), or 128 kbps (Compact).
+  - Uses embedded static FFmpeg for lossless conversion into `.mp3`.
+
+- **✂️ Precision Video & Audio Trimmer**:
+  - Visual dual-slider timestamp picker.
+  - Custom Start & End timestamp inputs (`HH:MM:SS` or seconds).
+  - Cut and download only the exact segment you need without downloading the whole video.
+
+- **📑 Full YouTube Playlist Multi-Download**:
+  - Enter any playlist URL (`list=...`).
+  - View all playlist items, titles, thumbnails, and durations.
+  - Multi-select interactive checkboxes to download the whole playlist or select individual videos.
+
+- **⚡ 1-Click Clipboard Paste**:
+  - Paste directly from your clipboard with a single click.
+  - Supports standard YouTube URLs, YouTube Shorts, Music links (`music.youtube.com`), and mobile share links (`youtu.be`).
+
+- **🛠️ Self-Contained FFmpeg Included**:
+  - Pre-packaged with `@ffmpeg-installer/ffmpeg` — no manual system FFmpeg installation required.
+
+---
+
+## 📋 Prerequisites
+
+Before running the project locally, make sure you have:
+
+1. **[Node.js](https://nodejs.org/)** (v18 or higher)
+2. **[Python](https://www.python.org/)** (v3.8 or higher)
+3. **[yt-dlp](https://github.com/yt-dlp/yt-dlp)**:
+   ```bash
+   pip install -U yt-dlp
+   ```
+
+---
+
+## 🚀 Quick Start (1-Click Launch)
+
+### On Windows:
+Double-click **`start_downloader.bat`**.
+> It checks your dependencies, installs any missing packages, launches the backend & frontend servers, and opens `http://localhost:5173` in your default browser.
+
+### On macOS / Linux:
+Make the script executable and run:
+```bash
+chmod +x start_downloader.sh
+./start_downloader.sh
+```
+
+---
+
+## 💻 Manual Developer Setup
+
+If you prefer using your terminal:
 
 ```bash
-# 1. Install dependencies (if not already installed)
+# 1. Clone the repository
+git clone https://github.com/Amit-Patra-04/Amyth-Downloader.git
+cd Amyth-Downloader
+
+# 2. Install Node dependencies
 npm install
 
-# 2. Start Vite development server
+# 3. Ensure yt-dlp is installed
+pip install -U yt-dlp
+
+# 4. Start both backend and frontend together
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Your browser will automatically connect to:
+- **Frontend UI**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:5000](http://localhost:5000)
 
 ---
 
-## 🌐 Deploying to Netlify (100% Free)
+## 🏗️ Building for Production / Local Standalone Server
 
-All required configuration files (`netlify.toml` and `public/_redirects`) are already included in this repository.
+You can build the production frontend bundle and serve everything directly from Express on port `5000`:
 
-### Option 1: Automatic Deployment via GitHub (Recommended)
+```bash
+# Build the React frontend
+npm run build
 
-1. Push your project to GitHub:
-   ```bash
-   git add .
-   git commit -m "Deploy Amyth Downloader"
-   git push origin main
-   ```
-2. Go to [app.netlify.com](https://app.netlify.com) and log in.
-3. Click **"Add new site"** &rarr; **"Import an existing project"** &rarr; Select **GitHub**.
-4. Select your **Amyth-Downloader** repository.
-5. Netlify will automatically fill in:
-   - **Build Command**: `npm run build`
-   - **Publish Directory**: `dist`
-6. Click **"Deploy site"**. Your site is now live with free SSL!
+# Start the standalone server
+npm start
+```
+
+Then navigate to [http://localhost:5000](http://localhost:5000) in your browser.
 
 ---
 
-### Option 2: Instant Drag-and-Drop (No Git Required)
+## 📁 Project Structure
 
-1. Build the production bundle on your computer:
-   ```bash
-   npm run build
-   ```
-2. Go to [app.netlify.com/drop](https://app.netlify.com/drop).
-3. Drag and drop the generated `dist` folder directly onto the page.
-4. Your website is instantly deployed!
+```
+Amyth-Downloader/
+├── public/                 # Static assets (favicons, icons)
+├── server/
+│   └── server.js           # Express API server (yt-dlp engine & FFmpeg remuxing)
+├── src/
+│   ├── components/         # React UI components (VideoCard, DownloadOptions, UrlInput, etc.)
+│   ├── App.jsx             # Main application layout and state management
+│   ├── config.js           # API configuration (local proxy)
+│   ├── index.css           # Tailwind CSS styles and glassmorphism themes
+│   └── main.jsx            # React root entry point
+├── package.json            # Node.js dependencies and scripts
+├── requirements.txt        # Python dependency (yt-dlp)
+├── start_downloader.bat    # Windows 1-click launcher
+├── start_downloader.sh     # macOS / Linux 1-click launcher
+└── vite.config.js          # Vite configuration with local proxy to port 5000
+```
+
+---
+
+## 🛡️ License
+
+This project is open source and available under the [MIT License](LICENSE).

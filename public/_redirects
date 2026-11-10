@@ -1,5 +1,0 @@
-# Netlify API Proxy to Render Backend
-/api/*  https://amyth-downloader-2.onrender.com/api/:splat  200!
-
-# SPA Routing Fallback
-/*    /index.html   200
