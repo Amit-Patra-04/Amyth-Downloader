@@ -4,28 +4,44 @@ import tailwindcss from '@tailwindcss/vite'
 import { spawn } from 'child_process'
 import http from 'http'
 
-function autoBackendPlugin() {
-  let backendProc = null;
+let backendProc = null;
+let isStarting = false;
 
+function ensureBackend() {
+  if (isStarting) return;
+  isStarting = true;
+
+  const req = http.get('http://localhost:5000/api/health', (res) => {
+    isStarting = false;
+  });
+
+  req.on('error', () => {
+    console.log('🚀 Starting backend server on port 5000 (node server/server.js)...');
+    backendProc = spawn('node', ['server/server.js'], {
+      stdio: 'inherit',
+      shell: true,
+    });
+
+    backendProc.on('error', (err) => {
+      console.error('Failed to spawn backend server:', err);
+    });
+
+    backendProc.on('exit', () => {
+      backendProc = null;
+      isStarting = false;
+    });
+
+    setTimeout(() => {
+      isStarting = false;
+    }, 2000);
+  });
+}
+
+function autoBackendPlugin() {
   return {
     name: 'auto-backend-starter',
     configureServer(server) {
-      // Check if backend on port 5000 is already active
-      const req = http.get('http://localhost:5000/api/health', (res) => {
-        console.log('✅ Backend server is already running on port 5000');
-      });
-
-      req.on('error', () => {
-        console.log('🚀 Port 5000 is inactive. Auto-starting backend server (node server/server.js)...');
-        backendProc = spawn('node', ['server/server.js'], {
-          stdio: 'inherit',
-          shell: true,
-        });
-
-        backendProc.on('error', (err) => {
-          console.error('Failed to auto-spawn backend server:', err);
-        });
-      });
+      ensureBackend();
 
       const cleanup = () => {
         if (backendProc) {
@@ -54,6 +70,11 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
+        configure: (proxy) => {
+          proxy.on('error', () => {
+            ensureBackend();
+          });
+        },
       },
     },
   },

@@ -168,38 +168,39 @@ app.get('/api/info', (req, res) => {
   const isPlaylist = cleanUrl.includes('list=') || cleanUrl.includes('/playlist');
 
   if (isPlaylist) {
+    const ffmpegBin = getFfmpegPath();
+
     const tier1Args = [
       '-m', 'yt_dlp',
       '-j',
       '--flat-playlist',
       '--js-runtimes', 'node',
-      '--legacy-server-connect',
-      '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=android_creator,tv_embedded,web_embedded,android;player_skip=webpage',
-      cleanUrl
+      '--no-check-certificates'
     ];
+    if (ffmpegBin) tier1Args.push('--ffmpeg-location', ffmpegBin);
+    tier1Args.push(cleanUrl);
 
     const tier2Args = [
       '-m', 'yt_dlp',
       '-j',
       '--flat-playlist',
       '--js-runtimes', 'node',
-      '--legacy-server-connect',
       '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=mweb,android_vr,ios',
-      cleanUrl
+      '--extractor-args', 'youtube:player_client=web,android'
     ];
+    if (ffmpegBin) tier2Args.push('--ffmpeg-location', ffmpegBin);
+    tier2Args.push(cleanUrl);
 
     const tier3Args = [
       '-m', 'yt_dlp',
       '-j',
       '--flat-playlist',
       '--js-runtimes', 'node',
-      '--legacy-server-connect',
       '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=android,web',
-      cleanUrl
+      '--extractor-args', 'youtube:player_client=mweb,android_vr,ios'
     ];
+    if (ffmpegBin) tier3Args.push('--ffmpeg-location', ffmpegBin);
+    tier3Args.push(cleanUrl);
 
     executeYtDlpArgsWithFallback(tier1Args, tier2Args, tier3Args, (error, stdout, stderr) => {
       if (error && (!stdout || stdout.trim() === '')) {
@@ -252,38 +253,39 @@ app.get('/api/info', (req, res) => {
     });
   } else {
     // Single Video Extraction
+    const ffmpegBin = getFfmpegPath();
+
     const tier1Args = [
       '-m', 'yt_dlp',
       '--dump-json',
       '--no-playlist',
       '--js-runtimes', 'node',
-      '--legacy-server-connect',
-      '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=android_creator,tv_embedded,web_embedded,android;player_skip=webpage',
-      cleanUrl
+      '--no-check-certificates'
     ];
+    if (ffmpegBin) tier1Args.push('--ffmpeg-location', ffmpegBin);
+    tier1Args.push(cleanUrl);
 
     const tier2Args = [
       '-m', 'yt_dlp',
       '--dump-json',
       '--no-playlist',
       '--js-runtimes', 'node',
-      '--legacy-server-connect',
       '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=mweb,android_vr,ios',
-      cleanUrl
+      '--extractor-args', 'youtube:player_client=web,android'
     ];
+    if (ffmpegBin) tier2Args.push('--ffmpeg-location', ffmpegBin);
+    tier2Args.push(cleanUrl);
 
     const tier3Args = [
       '-m', 'yt_dlp',
       '--dump-json',
       '--no-playlist',
       '--js-runtimes', 'node',
-      '--legacy-server-connect',
       '--no-check-certificates',
-      '--extractor-args', 'youtube:player_client=android,web',
-      cleanUrl
+      '--extractor-args', 'youtube:player_client=mweb,android_vr,ios'
     ];
+    if (ffmpegBin) tier3Args.push('--ffmpeg-location', ffmpegBin);
+    tier3Args.push(cleanUrl);
 
     executeYtDlpArgsWithFallback(tier1Args, tier2Args, tier3Args, (error, stdout, stderr) => {
       if (error || !stdout || stdout.trim() === '') {
@@ -300,8 +302,19 @@ app.get('/api/info', (req, res) => {
         const durationSec = info.duration || 0;
 
         const videoHeights = formats
-          .filter(f => f.vcodec !== 'none' && typeof f.height === 'number' && f.height > 0)
-          .map(f => f.height);
+          .filter(f => f.vcodec !== 'none' && (f.height > 0 || f.width > 0))
+          .map(f => {
+            const h = typeof f.height === 'number' ? f.height : 0;
+            const w = typeof f.width === 'number' ? f.width : 0;
+            // For vertical videos where height > width (e.g., 1080x1920), effective tier is min(w, h)
+            return (w > 0 && h > w) ? w : h;
+          })
+          .filter(h => h > 0);
+
+        if (info.height && typeof info.height === 'number' && info.height > 0) {
+          const rootH = (info.width && info.height > info.width) ? info.width : info.height;
+          videoHeights.push(rootH);
+        }
 
         const maxVideoHeight = videoHeights.length > 0 ? Math.max(...videoHeights) : 720;
 
@@ -318,7 +331,11 @@ app.get('/api/info', (req, res) => {
           : 0;
 
         const getExactSizeForHeight = (h) => {
-          const vFormats = formats.filter(f => f.vcodec !== 'none' && f.height === h);
+          const vFormats = formats.filter(f => {
+            if (f.vcodec === 'none') return false;
+            const effectiveH = (f.width && f.height && f.height > f.width) ? f.width : (f.height || 0);
+            return effectiveH === h || f.height === h;
+          });
           if (vFormats.length === 0) return 0;
           const maxVSize = Math.max(...vFormats.map(f => (f.filesize || f.filesize_approx || (f.tbr ? (f.tbr * durationSec * 1000 / 8) : 0))));
           return maxVSize > 0 ? Math.round(maxVSize + bestAudioSize) : 0;
@@ -381,9 +398,7 @@ app.get('/api/download', (req, res) => {
     '-m', 'yt_dlp',
     '--force-overwrites',
     '--js-runtimes', 'node',
-    '--legacy-server-connect',
-    '--no-check-certificates',
-    '--extractor-args', 'youtube:player_client=android_creator,tv_embedded,web_embedded,android;player_skip=webpage'
+    '--no-check-certificates'
   ];
 
   if (ffmpegBin) {
@@ -414,7 +429,7 @@ app.get('/api/download', (req, res) => {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '0');
   } else {
     const targetHeight = parseInt(quality, 10) || 720;
-    const formatSpec = `bestvideo[height=${targetHeight}]+bestaudio/bestvideo[height<=${targetHeight}]+bestaudio/best[height<=${targetHeight}]/best`;
+    const formatSpec = `bestvideo[height=${targetHeight}]+bestaudio/bestvideo[height<=${targetHeight}]+bestaudio/best[height<=${targetHeight}]/bestvideo+bestaudio/best`;
     args.push('-f', formatSpec);
     args.push('--merge-output-format', 'mp4');
     args.push('--postprocessor-args', 'Merger:-c:a aac -c:v copy');
