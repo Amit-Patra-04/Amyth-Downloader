@@ -5,8 +5,8 @@ import VideoCard from './components/VideoCard';
 import DownloadOptions from './components/DownloadOptions';
 import { getApiBaseUrl } from './config';
 import { 
-  AlertCircle, Zap, Download, Sparkles, Video, ListVideo, Scissors, 
-  HardDrive, Music, ShieldCheck, CheckCircle2, ChevronDown, Heart, ArrowRight
+  AlertCircle, Video, ListVideo, Scissors, 
+  ChevronDown
 } from 'lucide-react';
 
 function App() {
@@ -20,10 +20,8 @@ function App() {
 
   const currentPlatform = {
     title: 'YouTube Video & Playlist Downloader',
-    placeholder: 'Paste YouTube Video, Shorts, or Playlist link (e.g. https://www.youtube.com/watch?v=...)',
+    placeholder: 'Paste YouTube video, Shorts, or playlist URL...',
     icon: Video,
-    badge: 'YouTube 4K & Playlist Supported',
-    badgeColor: 'text-rose-400 border-rose-500/30 bg-rose-500/10'
   };
 
   const fetchVideoDetails = async (targetUrl = url) => {
@@ -43,19 +41,18 @@ function App() {
 
       if (!contentType.includes('application/json')) {
         throw new Error(
-          'Failed to connect to video extraction server. Please check the backend connection or try again later.'
+          'Could not reach backend extraction server. Please ensure the backend is running.'
         );
       }
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch video/playlist metadata.');
+        throw new Error(data.error || 'Failed to fetch video metadata.');
       }
 
       setVideoInfo(data);
 
-      // Smooth scroll down to the starting section of fetched details
       setTimeout(() => {
         if (detailsSectionRef.current) {
           detailsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -78,73 +75,47 @@ function App() {
 
   const faqs = [
     {
-      q: 'How do I download videos in 4K or 1080p resolution?',
-      a: 'Simply paste the YouTube video link in the box above and click "Fetch Details". If the original video is uploaded in 4K, 2K, or 1080p, our system will automatically make those high-resolution options available for 1-click download.'
+      q: 'How are 4K and 1080p resolutions preserved?',
+      a: 'The downloader queries YouTube’s highest-bitrate video and audio streams, then merges them losslessly into an MP4 container using embedded FFmpeg.'
     },
     {
-      q: 'Can I download full YouTube playlists?',
-      a: 'Yes! Paste any playlist URL (containing list=) to load all videos. You can download the entire playlist at once or choose specific videos using interactive multi-select checkboxes.'
+      q: 'Can I download entire playlists?',
+      a: 'Yes. Paste any playlist URL (containing list=). You can download all videos or cherry-pick specific videos with interactive selection.'
     },
     {
-      q: 'How does the video trimmer work?',
-      a: 'When you paste a video, toggle the "Precision Video Trimmer" option. Use the visual dual-slider or enter exact start/end timestamps to download just the specific clip you need.'
+      q: 'How does the trimmer work?',
+      a: 'Toggle the Precision Trimmer, enter your start and end cut points or use the slider, and the server will download and slice only that specific segment.'
     },
     {
-      q: 'Is this service free to use?',
-      a: 'Yes, StreamGrab Pro is 100% free with unlimited downloads, no registration required, and zero hidden limits.'
+      q: 'Is there any download limit?',
+      a: 'No. The software runs entirely on your local machine with zero third-party cloud limits or subscriptions.'
     }
   ];
 
   return (
-    <div className="min-h-screen flex flex-col justify-between text-slate-100 selection:bg-rose-500 selection:text-white">
-      {/* Background Decorative Lighting */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-rose-600/15 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/3 -right-40 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 left-1/3 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="relative z-10">
-        {/* Navigation Bar Header */}
+    <div className="min-h-screen flex flex-col justify-between bg-[#fafafa] text-zinc-900 selection:bg-zinc-900 selection:text-white">
+      <div>
+        {/* Navigation Bar */}
         <Header />
 
         {/* Hero & Input Section */}
-        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-16">
-          <div className="text-center mb-8 sm:mb-12">
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-28 pb-16">
+          <div className="text-center mb-8">
             
-            {/* Pulsing Capability Pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-rose-500/25 bg-rose-500/10 text-xs sm:text-sm font-semibold mb-6 backdrop-blur-md shadow-lg shadow-rose-500/10">
-              <Zap className="w-4 h-4 text-amber-400 animate-pulse" />
-              <span className="text-rose-300">Fast 4K & High-Res Audio Downloader</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight mb-4 sm:mb-6 leading-tight">
-              Download Media in <br className="hidden sm:inline" />
-              <span className="gradient-text">Original 4K Quality</span>
+            <h1 className="text-3xl sm:text-5xl font-semibold tracking-tight text-zinc-900 mb-3">
+              YouTube Video & Audio Downloader
             </h1>
 
-            <p className="text-slate-400 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
-              Fast, free & direct video downloader. Convert YouTube videos, Shorts & full playlists to 4K MP4 or 320kbps MP3 instantly.
+            <p className="text-zinc-600 text-sm sm:text-base max-w-xl mx-auto leading-relaxed mb-6">
+              Download media in original quality up to 4K Ultra HD or extract clean 320kbps MP3 audio with no compression.
             </p>
 
-            {/* Quick Feature Badges */}
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-6 text-xs text-slate-300">
-              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-rose-400" />
-                <span>4K / 1080p Ultra HD</span>
-              </span>
-              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
-                <Music className="w-3.5 h-3.5 text-purple-400" />
-                <span>320kbps MP3 Audio</span>
-              </span>
-              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
-                <ListVideo className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Playlist Multi-Download</span>
-              </span>
-              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 flex items-center gap-1.5">
-                <Scissors className="w-3.5 h-3.5 text-amber-400" />
-                <span>Precision Video Trimmer</span>
-              </span>
+            {/* Subtle Feature Pills */}
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-zinc-600 font-mono">
+              <span className="px-2.5 py-1 rounded-md bg-white border border-zinc-200 shadow-xs">4K • 1080p • 720p</span>
+              <span className="px-2.5 py-1 rounded-md bg-white border border-zinc-200 shadow-xs">320kbps MP3</span>
+              <span className="px-2.5 py-1 rounded-md bg-white border border-zinc-200 shadow-xs">Full Playlists</span>
+              <span className="px-2.5 py-1 rounded-md bg-white border border-zinc-200 shadow-xs">Precision Trimmer</span>
             </div>
           </div>
 
@@ -158,12 +129,12 @@ function App() {
             platformDetails={currentPlatform}
           />
 
-          {/* Error Message Toast */}
+          {/* Error Message */}
           {error && (
-            <div className="max-w-3xl mx-auto mb-8 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 flex items-start gap-3 shadow-xl backdrop-blur-md animate-shake text-left">
-              <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-              <div className="text-sm">
-                <strong className="font-bold block text-red-200 mb-0.5">Error Occurred</strong>
+            <div className="max-w-3xl mx-auto mb-6 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-800 flex items-start gap-3 text-left text-xs sm:text-sm">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-semibold block text-red-900">Unable to fetch video</strong>
                 <span>{error}</span>
               </div>
             </div>
@@ -171,120 +142,108 @@ function App() {
 
           {/* Fetched Details Section */}
           {videoInfo && (
-            <div ref={detailsSectionRef} className="mt-8 transition-all animate-fade-in">
+            <div ref={detailsSectionRef} className="mt-8 transition-all">
               <VideoCard videoInfo={videoInfo} />
               <DownloadOptions videoInfo={videoInfo} url={url} />
             </div>
           )}
 
-          {/* How It Works - 3 Simple Steps */}
-          <div className="mt-16 sm:mt-24 text-center">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-100 mb-2">
-              How It Works in 3 Simple Steps
+          {/* How It Works - 3 Steps */}
+          <div className="mt-16 sm:mt-20 text-center border-t border-zinc-200 pt-12">
+            <h2 className="text-lg sm:text-xl font-semibold text-zinc-900 mb-1">
+              How it works
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mb-8 sm:mb-12">
-              Fastest way to get your media saved directly to your device
+            <p className="text-xs sm:text-sm text-zinc-500 mb-8">
+              Three simple steps to save your media locally
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-              {/* Step 1 */}
-              <div className="glass-card rounded-3xl p-6 relative border border-white/10 hover:border-rose-500/30 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/25 flex items-center justify-center text-rose-400 font-black text-sm mb-4">
-                  1
-                </div>
-                <h3 className="text-base font-bold text-slate-100 mb-1.5">Paste Video URL</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Copy any YouTube video, Shorts, or playlist link and paste it into the input box above.
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+              <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-xs">
+                <span className="inline-block text-xs font-mono font-medium text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200/60 mb-3">
+                  01
+                </span>
+                <h3 className="text-sm font-semibold text-zinc-900 mb-1">Paste Link</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Paste any YouTube video, Shorts, or playlist URL into the input field.
                 </p>
               </div>
 
-              {/* Step 2 */}
-              <div className="glass-card rounded-3xl p-6 relative border border-white/10 hover:border-purple-500/30 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center text-purple-400 font-black text-sm mb-4">
-                  2
-                </div>
-                <h3 className="text-base font-bold text-slate-100 mb-1.5">Choose Quality</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Select your desired resolution (4K, 1080p, 720p) or choose 320kbps MP3 audio format.
+              <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-xs">
+                <span className="inline-block text-xs font-mono font-medium text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200/60 mb-3">
+                  02
+                </span>
+                <h3 className="text-sm font-semibold text-zinc-900 mb-1">Select Format</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Choose MP4 video up to 4K or 320kbps MP3 audio, with optional trimming.
                 </p>
               </div>
 
-              {/* Step 3 */}
-              <div className="glass-card rounded-3xl p-6 relative border border-white/10 hover:border-emerald-500/30 transition-all">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center text-emerald-400 font-black text-sm mb-4">
-                  3
-                </div>
-                <h3 className="text-base font-bold text-slate-100 mb-1.5">Instant Download</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Click download and your file will be processed and saved directly with no watermarks.
+              <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-xs">
+                <span className="inline-block text-xs font-mono font-medium text-zinc-700 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-200/60 mb-3">
+                  03
+                </span>
+                <h3 className="text-sm font-semibold text-zinc-900 mb-1">Download</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Stream is remuxed and downloaded straight into your browser's download folder.
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Feature Highlights Grid */}
-          <div className="mt-12 sm:mt-16 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 text-left">
-            <div className="glass-card rounded-3xl p-6 border border-white/10 hover:border-rose-500/30 transition-all shadow-xl">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 mb-4">
-                <Video className="w-6 h-6" />
-              </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-slate-100 mb-2">4K Ultra HD Quality</h3>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Preserve original high-bitrate video in 2160p 4K, 1440p 2K, and 1080p Full HD with crisp audio.
+          {/* Capabilities Grid */}
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 text-left">
+            <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-xs">
+              <Video className="w-5 h-5 text-zinc-600 mb-2.5" />
+              <h3 className="text-sm font-semibold text-zinc-900 mb-1">4K Ultra HD</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Downloads true 2160p and 1080p DASH streams with video and audio intact.
               </p>
             </div>
 
-            <div className="glass-card rounded-3xl p-6 border border-white/10 hover:border-purple-500/30 transition-all shadow-xl">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4">
-                <ListVideo className="w-6 h-6" />
-              </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-slate-100 mb-2">Playlist Selection</h3>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Download entire playlists at once or cherry-pick specific videos with one click.
+            <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-xs">
+              <ListVideo className="w-5 h-5 text-zinc-600 mb-2.5" />
+              <h3 className="text-sm font-semibold text-zinc-900 mb-1">Playlist Support</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Parse playlists and choose individual videos or download in batch.
               </p>
             </div>
 
-            <div className="glass-card rounded-3xl p-6 border border-white/10 hover:border-indigo-500/30 transition-all shadow-xl">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
-                <Scissors className="w-6 h-6" />
-              </div>
-              <h3 className="text-base sm:text-lg font-extrabold text-slate-100 mb-2">Precision Trimmer</h3>
-              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-                Set custom start & end cut points to download only the exact segment of the video you want.
+            <div className="rounded-xl p-4 sm:p-5 border border-zinc-200 bg-white shadow-xs">
+              <Scissors className="w-5 h-5 text-zinc-600 mb-2.5" />
+              <h3 className="text-sm font-semibold text-zinc-900 mb-1">Clip Trimmer</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Download only specific timestamps without needing to process the entire video.
               </p>
             </div>
           </div>
 
-          {/* Minimalist FAQ Accordion */}
-          <div className="mt-16 sm:mt-24 max-w-3xl mx-auto text-left">
-            <h2 className="text-xl sm:text-2xl font-black text-slate-100 text-center mb-2">
-              Frequently Asked Questions
+          {/* FAQ Accordion */}
+          <div className="mt-14 max-w-2xl mx-auto text-left">
+            <h2 className="text-base sm:text-lg font-semibold text-zinc-900 text-center mb-6">
+              Frequently asked questions
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 text-center mb-8">
-              Everything you need to know about our downloader
-            </p>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {faqs.map((faq, idx) => {
                 const isOpen = openFaq === idx;
                 return (
                   <div
                     key={idx}
-                    className="glass-card rounded-2xl border border-white/10 overflow-hidden transition-all"
+                    className="rounded-xl border border-zinc-200 bg-white overflow-hidden shadow-xs"
                   >
                     <button
                       onClick={() => setOpenFaq(isOpen ? null : idx)}
-                      className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4 font-bold text-xs sm:text-sm text-slate-200 hover:text-white cursor-pointer"
+                      className="w-full p-3.5 text-left flex items-center justify-between gap-4 font-medium text-xs sm:text-sm text-zinc-800 hover:text-zinc-950 cursor-pointer"
                     >
                       <span>{faq.q}</span>
                       <ChevronDown
-                        className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${
-                          isOpen ? 'rotate-180 text-rose-400' : ''
+                        className={`w-4 h-4 text-zinc-400 transition-transform duration-150 shrink-0 ${
+                          isOpen ? 'rotate-180 text-zinc-700' : ''
                         }`}
                       />
                     </button>
                     {isOpen && (
-                      <div className="px-4 sm:px-5 pb-4 sm:pb-5 text-xs sm:text-sm text-slate-400 leading-relaxed border-t border-white/5 pt-3">
+                      <div className="px-3.5 pb-3.5 text-xs text-zinc-600 leading-relaxed border-t border-zinc-100 pt-2.5">
                         {faq.a}
                       </div>
                     )}
@@ -297,22 +256,21 @@ function App() {
         </main>
       </div>
 
-      {/* Footer Section */}
-      <footer className="relative z-10 border-t border-white/10 py-6 sm:py-8 bg-black/40 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <p className="text-xs sm:text-sm text-slate-400 flex items-center justify-center gap-1.5 flex-wrap">
-            <span>© 2026 StreamGrab Pro • Made with</span>
-            <Heart className="w-4 h-4 text-red-500 fill-red-500 animate-pulse" />
-            <span>by</span>
+      {/* Minimal Footer */}
+      <footer className="border-t border-zinc-200 bg-white py-6 text-center text-xs text-zinc-500">
+        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <span>StreamGrab • Local Media Studio</span>
+          <span>
+            Created by{' '}
             <a
               href="https://amit-developer-portfolio.netlify.app/"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-300 hover:text-rose-400 transition-colors no-underline font-semibold"
+              className="text-zinc-700 hover:text-zinc-900 transition-colors font-medium underline underline-offset-2"
             >
               K Amit Patra
             </a>
-          </p>
+          </span>
         </div>
       </footer>
     </div>
