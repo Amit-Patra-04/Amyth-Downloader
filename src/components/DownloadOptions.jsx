@@ -152,9 +152,13 @@ export default function DownloadOptions({ videoInfo, url }) {
 
     setTimeout(() => {
       setDownloading(false);
-      setDownloadStatus('Download initiated in your browser.');
+      setDownloadStatus(
+        trimState.enabled
+          ? 'Fast stream trimming applied! Your clip will begin saving shortly.'
+          : 'Download initiated in your browser.'
+      );
       setTimeout(() => setDownloadStatus(''), 7000);
-    }, 2000);
+    }, 2500);
   };
 
   return (

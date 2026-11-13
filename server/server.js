@@ -420,9 +420,11 @@ app.get('/api/download', (req, res) => {
   }
 
   // Section trimming support
-  if (!isPlaylist && startTime !== undefined && endTime !== undefined && startTime !== '' && endTime !== '') {
+  const isTrimming = !isPlaylist && startTime !== undefined && endTime !== undefined && startTime !== '' && endTime !== '';
+  if (isTrimming) {
     args.push('--download-sections', `*${startTime}-${endTime}`);
-    args.push('--force-keyframes-at-cuts');
+    // Enable stream reconnects for reliable segment streaming
+    args.push('--downloader-args', 'ffmpeg_i:-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5');
   }
 
   if (isAudio) {
@@ -432,7 +434,14 @@ app.get('/api/download', (req, res) => {
     const formatSpec = `bestvideo[height=${targetHeight}]+bestaudio/bestvideo[height<=${targetHeight}]+bestaudio/best[height<=${targetHeight}]/bestvideo+bestaudio/best`;
     args.push('-f', formatSpec);
     args.push('--merge-output-format', 'mp4');
-    args.push('--postprocessor-args', 'Merger:-c:a aac -c:v copy');
+    
+    if (isTrimming) {
+      // Fast stream copy: preserve original video track without slow CPU re-encoding (-c:v copy)
+      // Convert audio track to standard AAC (-c:a aac) for universal MP4 playback without experimental Opus errors
+      args.push('--downloader-args', 'ffmpeg:-c:v copy -c:a aac -strict -2');
+    } else {
+      args.push('--postprocessor-args', 'Merger:-c:a aac -c:v copy');
+    }
   }
 
   args.push(cleanUrl);
