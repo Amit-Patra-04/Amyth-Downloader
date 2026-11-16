@@ -42,21 +42,11 @@ export default function Header() {
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-red-600 text-white shadow-xs">
             <Video className="w-4 h-4 text-white" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-semibold tracking-tight text-zinc-900">StreamGrab</span>
-            <span className="text-[11px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200 font-mono">
-              Local Studio
-            </span>
-          </div>
+          <span className="text-base font-semibold tracking-tight text-zinc-900">StreamGrab</span>
         </div>
 
-        {/* Right Badges */}
+        {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs text-zinc-600 font-medium">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="hidden sm:inline">Engine Active</span>
-          </div>
-
           <a
             href="https://github.com/Amit-Patra-04/Amyth-Downloader"
             target="_blank"
