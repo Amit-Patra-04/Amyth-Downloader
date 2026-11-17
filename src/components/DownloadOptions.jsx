@@ -150,15 +150,22 @@ export default function DownloadOptions({ videoInfo, url }) {
     link.click();
     document.body.removeChild(link);
 
-    setTimeout(() => {
-      setDownloading(false);
-      setDownloadStatus(
-        trimState.enabled
-          ? 'Fast stream trimming applied! Your clip will begin saving shortly.'
-          : 'Download initiated in your browser.'
-      );
-      setTimeout(() => setDownloadStatus(''), 7000);
-    }, 2500);
+    const isTrim = !isPlaylist && trimState.enabled && trimState.endTime > trimState.startTime;
+
+    if (isTrim) {
+      setDownloadStatus('Slicing stream from YouTube... Please hold on, saving to your browser shortly.');
+      setTimeout(() => {
+        setDownloading(false);
+        setDownloadStatus('Download initiated! Check your browser downloads.');
+        setTimeout(() => setDownloadStatus(''), 8000);
+      }, 15000);
+    } else {
+      setTimeout(() => {
+        setDownloading(false);
+        setDownloadStatus('Download initiated in your browser.');
+        setTimeout(() => setDownloadStatus(''), 7000);
+      }, 2500);
+    }
   };
 
   return (
@@ -336,9 +343,20 @@ export default function DownloadOptions({ videoInfo, url }) {
 
       {/* Processing State */}
       {downloading && (
-        <div className="mb-4 p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-700 text-xs flex items-center justify-center gap-2">
-          <Loader2 className="w-4 h-4 text-zinc-600 animate-spin shrink-0" />
-          <span>Processing video stream... Download will begin shortly.</span>
+        <div className="mb-4 p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-700 text-xs flex flex-col items-center justify-center gap-1.5 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-4 h-4 text-red-600 animate-spin shrink-0" />
+            <span className="font-semibold text-zinc-800">
+              {trimState.enabled
+                ? 'Slicing & preparing clip from YouTube stream...'
+                : 'Processing media stream...'}
+            </span>
+          </div>
+          <p className="text-[11px] text-zinc-500">
+            {trimState.enabled
+              ? 'Stream slicing runs directly without CPU re-encoding. Saving will begin in your browser shortly.'
+              : 'The download will begin automatically in your browser.'}
+          </p>
         </div>
       )}
 

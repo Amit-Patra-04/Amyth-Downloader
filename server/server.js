@@ -33,8 +33,8 @@ const getPythonCmd = () => {
 };
 const PYTHON_CMD = getPythonCmd();
 
-// Dynamically locate FFmpeg binary executable (prioritize self-contained @ffmpeg-installer binary)
-let ffmpegPath = ffmpegInstaller.path || '';
+// Dynamically locate modern FFmpeg binary executable (prioritize modern imageio_ffmpeg v7.x over legacy v4 installer)
+let ffmpegPath = '';
 const getFfmpegPath = () => {
   if (ffmpegPath && fs.existsSync(ffmpegPath)) return ffmpegPath;
   try {
@@ -42,11 +42,16 @@ const getFfmpegPath = () => {
     const detected = stdout.trim();
     if (detected && fs.existsSync(detected)) {
       ffmpegPath = detected;
+      return ffmpegPath;
     }
   } catch (err) {
-    console.warn('Could not auto-locate FFmpeg via imageio_ffmpeg:', err.message);
+    console.warn('Could not auto-locate modern FFmpeg via imageio_ffmpeg:', err.message);
   }
-  return ffmpegPath;
+  if (ffmpegInstaller.path && fs.existsSync(ffmpegInstaller.path)) {
+    ffmpegPath = ffmpegInstaller.path;
+    return ffmpegPath;
+  }
+  return '';
 };
 
 // Utility: Clean old files in temp directory
@@ -397,6 +402,7 @@ app.get('/api/download', (req, res) => {
   const args = [
     '-m', 'yt_dlp',
     '--force-overwrites',
+    '--force-ipv4',
     '--js-runtimes', 'node',
     '--no-check-certificates'
   ];
@@ -436,9 +442,9 @@ app.get('/api/download', (req, res) => {
     args.push('--merge-output-format', 'mp4');
     
     if (isTrimming) {
-      // Fast stream copy: preserve original video track without slow CPU re-encoding (-c:v copy)
-      // Convert audio track to standard AAC (-c:a aac) for universal MP4 playback without experimental Opus errors
-      args.push('--downloader-args', 'ffmpeg:-c:v copy -c:a aac -strict -2');
+      // Direct stream slicing with native formats, remuxed to MP4 with AAC audio for fast non-blocking output
+      args.push('--remux-video', 'mp4');
+      args.push('--postprocessor-args', 'VideoRemuxer:-c:v copy -c:a aac -movflags +faststart');
     } else {
       args.push('--postprocessor-args', 'Merger:-c:a aac -c:v copy');
     }
